@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import time
+import pandas as pd
 
 
 
@@ -52,7 +53,9 @@ cap = cv2.VideoCapture('color_vid.avi')
 suc, prev = cap.read()
 prevgray = cv2.cvtColor(prev, cv2.COLOR_BGR2GRAY)
 
-
+# Initialize the DataFrame with an empty MultiIndex
+df = pd.DataFrame(columns=['fx', 'fy'])
+frame = 0
 while True:
 
     suc, img = cap.read()
@@ -87,6 +90,32 @@ while True:
     elif key == ord('s'):
         cv2.imwrite('flow.png', draw_flow_img)
         cv2.imwrite('hsv.png', draw_hsv_img)
+    # # Create a MultiIndex representing the grid coordinates
+    # index = pd.MultiIndex.from_product([[frame], range(480), range(640)], names=['frame', 'row', 'column'])
+
+    # # Reshape the flow array to a 2D shape (480*640, 2)
+    # flow_2d = flow.reshape(-1, 2)
+
+    # # Create a DataFrame with the MultiIndex
+    # frame_df = pd.DataFrame(flow_2d, index=index, columns=['fx', 'fy'])
+
+    # # Append the frame-specific DataFrame to the main DataFrame
+    # df = pd.concat([df, frame_df])
+
+    frame += 1    
+
+
+
+# Create a MultiIndex representing the grid coordinates
+index = pd.MultiIndex.from_product([range(480), range(640)], names=['row', 'column'])
+
+# Reshape the flow array to a 2D shape (480*640, 2)
+flow_2d = flow.reshape(-1, 2)
+
+# Create a DataFrame with the MultiIndex
+df = pd.DataFrame(flow_2d, index=index, columns=['fx', 'fy'])
+
+a =  df.loc[(0, 0)]
 
 
 cap.release()
