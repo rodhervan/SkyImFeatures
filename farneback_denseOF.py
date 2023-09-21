@@ -56,7 +56,11 @@ prevgray = cv2.cvtColor(prev, cv2.COLOR_BGR2GRAY)
 # Initialize the DataFrame with an empty MultiIndex
 df = pd.DataFrame(columns=['fx', 'fy'])
 frame = 0
+f_list = []
+dataframe_list = []
+abc_dataframe = []
 while True:
+# while frame < 30:
 
     suc, img = cap.read()
     if not suc:
@@ -80,6 +84,10 @@ while True:
     draw_flow_img = draw_flow(gray, flow)
     draw_hsv_img, mag, ang = draw_hsv(flow)
     deg_ang = np.rad2deg(ang)
+    nested_list = [mag,deg_ang]
+    abc = np.array(nested_list)
+    abc = np.transpose(abc, (1, 2, 0))
+    all4 = np.dstack((flow, abc))
     
     cv2.imshow('flow', draw_flow_img)
     cv2.imshow('flow HSV', draw_hsv_img)
@@ -91,31 +99,26 @@ while True:
         cv2.imwrite('flow.png', draw_flow_img)
         cv2.imwrite('hsv.png', draw_hsv_img)
     # # Create a MultiIndex representing the grid coordinates
-    # index = pd.MultiIndex.from_product([[frame], range(480), range(640)], names=['frame', 'row', 'column'])
-
-    # # Reshape the flow array to a 2D shape (480*640, 2)
-    # flow_2d = flow.reshape(-1, 2)
-
-    # # Create a DataFrame with the MultiIndex
-    # frame_df = pd.DataFrame(flow_2d, index=index, columns=['fx', 'fy'])
-
-    # # Append the frame-specific DataFrame to the main DataFrame
-    # df = pd.concat([df, frame_df])
-
+    index = pd.MultiIndex.from_product([range(480), range(640)], names=['row', 'column'])
+    # Reshape the flow array to a 2D shape (480*640, 2)
+    flow_2d = all4.reshape(-1, 4)
+    # abc_2d = abc.reshape(-1, 2)
+    
+    # Create a DataFrame with the MultiIndex
+    df = pd.DataFrame(flow_2d, index=index, columns=['fx', 'fy', 'mag', 'ang'])
+    # df_abc = pd.DataFrame(abc_2d, index=index, columns=['mag', 'ang'])
+    f_list.append(frame)
+    dataframe_list.append(df)
+    # abc_dataframe.append(df_abc)
     frame += 1    
+df = pd.concat( dataframe_list, keys=f_list )
+# df_abc = pd.concat( abc_dataframe, keys=f_list )
+
+# nested_list = [flow,abc]
+# all4 = np.dstack((flow, abc))
 
 
-
-# Create a MultiIndex representing the grid coordinates
-index = pd.MultiIndex.from_product([range(480), range(640)], names=['row', 'column'])
-
-# Reshape the flow array to a 2D shape (480*640, 2)
-flow_2d = flow.reshape(-1, 2)
-
-# Create a DataFrame with the MultiIndex
-df = pd.DataFrame(flow_2d, index=index, columns=['fx', 'fy'])
-
-a =  df.loc[(0, 0)]
+frame_1 =  df.loc[0,:,:]
 
 
 cap.release()
