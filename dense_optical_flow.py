@@ -10,10 +10,10 @@ while(1):
     if not ret:
         print('No frames grabbed!')
         break
-
+    
+    # flow = cv.calcOpticalFlowFarneback(prvs, next, None, 0.5, 3, 15, 3, 5, 1.2, 0)
     next = cv.cvtColor(frame2, cv.COLOR_BGR2GRAY)
     prev = prvs
-    next
     flow=None
     pyr_scale = 0.5
     levels=3
@@ -22,10 +22,6 @@ while(1):
     poly_n=5
     poly_sigma=1.2
     flags=0
-    # flow = cv.calcOpticalFlowFarneback(	prev = prvs, next, flow=None, pyr_scale = 0.5, levels=3, winsize=15,
-    #                                    iterations=3, poly_n=5, poly_sigma=1.2, flags=0)
-    
-    # flow = cv.calcOpticalFlowFarneback(prvs, next, None, 0.5, 3, 15, 3, 5, 1.2, 0)
     flow = cv.calcOpticalFlowFarneback(	prev, next, flow, pyr_scale, levels, winsize, iterations, poly_n, poly_sigma, flags)
     mag, ang = cv.cartToPolar(flow[..., 0], flow[..., 1])
     hsv[..., 0] = ang*180/np.pi/2

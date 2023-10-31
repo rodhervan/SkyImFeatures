@@ -51,11 +51,20 @@ center = (width/2, height/2)
 
 # cv2.warpPolar(src, dsize, center, maxRadius,flags[,dst])
 
-
-rescale = cv2.warpPolar(src, (400,600), (316,237), 180, cv2.WARP_FILL_OUTLIERS )
+radius = 180
+rescale = cv2.warpPolar(src, (400,600), (316,237), radius, cv2.WARP_FILL_OUTLIERS )
 rotate = cv2.rotate(rescale, cv2.ROTATE_90_COUNTERCLOCKWISE)
+next_resc = cv2.warpPolar(rescale, (radius*2,radius*2), (radius,radius), radius, cv2.WARP_INVERSE_MAP )
 
-cv2.imshow("Polar Image", stretched_image)
+cv2.imshow("entrada", src)
+
+cv2.imshow("estirada polar", rotate)
+
+cv2.imshow("recovery", next_resc)
+
+
+
+
 
 # cv2.imwrite('color_on_default.jpg', color_on_def)
 # cv2.imwrite('photoshop.jpg', photoshop)
