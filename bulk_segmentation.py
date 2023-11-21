@@ -39,11 +39,10 @@ def watershed_seg (img):
     img[markers == -1] = [0,0,0]
     return img
 
-    
 # Create the 'modified' directory if it doesn't exist
 output_directory = '20230807_segmented_color'
 os.makedirs(output_directory, exist_ok=True)
- 
+
 # iterate over files in
 # that directory
 directory = '20230807_color'

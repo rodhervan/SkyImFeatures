@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import time
 import pandas as pd
+import os
 
 
 
@@ -48,7 +49,14 @@ def draw_hsv(flow):
 
 
 
-cap = cv2.VideoCapture('color_vid.avi')
+# cap = cv2.VideoCapture('color_vid.avi')
+# cap = cv2.VideoCapture('20230807_color.avi')
+# Video file
+video_file = 'color_vid.avi'
+video_name = os.path.splitext(os.path.basename(video_file))[0]
+cap = cv2.VideoCapture(video_file)
+
+
 
 suc, prev = cap.read()
 prevgray = cv2.cvtColor(prev, cv2.COLOR_BGR2GRAY)
@@ -123,3 +131,7 @@ frame_1 =  df.loc[0,:,:]
 
 cap.release()
 cv2.destroyAllWindows()
+
+# # Save the DataFrame to CSV with the same base name as the video file
+# csv_file = f'{video_name}.csv'
+# df.to_csv(csv_file, index=False)

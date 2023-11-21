@@ -40,7 +40,7 @@ def watershed_seg (img):
     
     markers = cv.watershed(img,markers)
     img[markers == -1] = [0,0,0]
-    return thresh
+    return img
 
 seg_default = watershed_seg (img)
 seg_warped = watershed_seg (rotate)
