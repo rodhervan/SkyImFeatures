@@ -68,7 +68,7 @@ f_list = []
 dataframe_list = []
 abc_dataframe = []
 # while True:
-while frame < 5:
+while frame < 3:
 
     suc, img = cap.read()
     if not suc:
@@ -96,10 +96,8 @@ while frame < 5:
     abc = np.array(nested_list)
     abc = np.transpose(abc, (1, 2, 0))
     all4 = np.dstack((flow, abc))
-    
     cv2.imshow('flow', draw_flow_img)
     cv2.imshow('flow HSV', draw_hsv_img)
-    
     key = cv2.waitKey(5)
     if key == ord('q'):
         break
