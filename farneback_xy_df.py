@@ -52,7 +52,8 @@ def draw_hsv(flow):
 
 
 # video_file = '20230807_color.avi'
-video_file = 'color_vid.avi'
+# video_file = 'color_vid.avi'
+video_file = '20230807_color.avi'
 video_name = os.path.splitext(os.path.basename(video_file))[0]
 cap = cv2.VideoCapture(video_file)
 
@@ -68,7 +69,7 @@ f_list = []
 dataframe_list = []
 abc_dataframe = []
 # while True:
-while frame < 3:
+while frame < 15:
 
     suc, img = cap.read()
     if not suc:
@@ -91,11 +92,11 @@ while frame < 3:
     
     draw_flow_img = draw_flow(gray, flow)
     draw_hsv_img, mag, ang = draw_hsv(flow)
-    deg_ang = np.rad2deg(ang)
-    nested_list = [mag,deg_ang]
-    abc = np.array(nested_list)
-    abc = np.transpose(abc, (1, 2, 0))
-    all4 = np.dstack((flow, abc))
+    # deg_ang = np.rad2deg(ang)
+    # nested_list = [mag,deg_ang]
+    # abc = np.array(nested_list)
+    # abc = np.transpose(abc, (1, 2, 0))
+    # all4 = np.dstack((flow, abc))
     cv2.imshow('flow', draw_flow_img)
     cv2.imshow('flow HSV', draw_hsv_img)
     key = cv2.waitKey(5)
@@ -108,18 +109,21 @@ while frame < 3:
     # Create an array of indices corresponding to the points in the 480x640 dimension
     indices = np.indices((480, 640)).reshape(2, -1).T
     # Flatten the original array
-    flat_data = all4.reshape((-1, 4))
+    flat_data = flow.reshape((-1, 2))
     # Combine indices and data into a DataFrame
-    df = pd.DataFrame(np.concatenate([indices, flat_data], axis=1), columns=['x', 'y', 'fx', 'fy', 'mag', 'ang'])
+    # df = pd.DataFrame(np.concatenate([indices, flat_data], axis=1), columns=['x', 'y', 'fx', 'fy', 'mag', 'ang'])
+    df = pd.DataFrame(np.concatenate([indices, flat_data], axis=1), columns=['x', 'y', 'fx', 'fy'])
     # # Add a new column with the custom value at the beginning
     df.insert(0, 'indice', frame)   
     # Append the DataFrame to the list
     dataframe_list.append(df)
-    
+    # new_df = df.append(dataframe_list[frame], ignore_index=True)
     frame += 1    
     
 # Concatenate all DataFrames in the list into a single DataFrame
-new_df = pd.concat(dataframe_list, keys=range(frame))
+# new_df = pd.concat(dataframe_list, keys=range(frame))
+new_df = pd.DataFrame(columns=['x', 'y', 'fx', 'fy'])
+new_df = new_df.append(dataframe_list, ignore_index=True)
 
 
 # frame_1 =  df.loc[0,:,:]
@@ -128,6 +132,14 @@ new_df = pd.concat(dataframe_list, keys=range(frame))
 cap.release()
 cv2.destroyAllWindows()
 
-# # Save the DataFrame to CSV with the same base name as the video file
+# Save the DataFrame to feather with the same base name as the video file
+file_name = f'{video_name}.feather'
+new_df.to_feather(file_name)  
+### read file
+# n_df = pd.read_feather(csv_file)
+
+# Save the DataFrame to CSV with the same base name as the video file
 # csv_file = f'{video_name}.csv'
 # new_df.to_csv(csv_file, index=False)
+
+

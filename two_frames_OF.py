@@ -1,6 +1,6 @@
 import numpy as np
 from numpy import asarray
-from PIL import Image
+from PIL import Image, ImageOps
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import skimage
@@ -17,8 +17,9 @@ from scipy.ndimage import measurements, center_of_mass, binary_dilation, zoom
 import blend_modes
 import plotly.graph_objects as go
 import pandas as pd
-
+import pvlib
 from skimage.draw import line, line_aa
+
 
 
 
@@ -98,6 +99,11 @@ def segmentation (filepath):
     camara = asarray(camara)
     slicee = camara[:,:,3]
     img = img* slicee
+    
+    from_array = Image.fromarray(img)
+    im_flip = ImageOps.flip(from_array)
+    im_rotate = im_flip.rotate(-3, center=(314, 235))
+    img = asarray(im_rotate)
     
     rgba_image = TwoDToRGBA (img)
 
@@ -220,7 +226,7 @@ key = cv2.waitKey(5)
 # cv2.imwrite('flow.png', draw_flow_img)
 # cv2.imwrite('hsv.png', draw_hsv_img)
 
-cv2.waitKey(0)
+# cv2.waitKey(0)
 cv2.destroyAllWindows()
 
 

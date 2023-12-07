@@ -104,6 +104,7 @@ def get_time (filepath):
 def get_solar_coords (x_mapped, y_mapped, day, timer):   
     x = x_mapped[day + ' ' + timer + '-05:00']
     y = y_mapped[day + ' ' + timer + '-05:00']
+    y = 480 - y
     return x, y
     
 
@@ -414,7 +415,8 @@ for filename in os.scandir(directory):
         img = line_img
         # Create a figure and axis for the imag
         fig, ax = plt.subplots()
-        ax.imshow(img, extent=[0, img.shape[1], 0, img.shape[0]])
+        # ax.imshow(img, extent=[0, img.shape[1], 0, img.shape[0]])
+        ax.imshow(img)
         ax.plot(solar_x, solar_y, 'r.', markersize=3, label=label)
         ax.text(0.2, 0.9, 'sun covered = '+str(covered), color = 'r',horizontalalignment='center',
              verticalalignment='center', transform=ax.transAxes)

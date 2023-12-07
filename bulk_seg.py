@@ -56,12 +56,12 @@ def remove_small(slc, c=0.0001):
 
 
 # Create the 'modified' directory if it doesn't exist
-output_directory = '20230805_seg_ag5'
+output_directory = '20230822_seg_ag5'
 os.makedirs(output_directory, exist_ok=True)
  
 # iterate over files in
 # that directory
-directory = '20230807_normal'
+directory = '20230822_normal'
 # directory = 'test_folder'
 # directory = 'nf'
 for filename in os.scandir(directory):

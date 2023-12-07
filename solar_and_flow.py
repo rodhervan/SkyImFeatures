@@ -106,6 +106,7 @@ def get_time (filepath):
 def get_solar_coords (x_mapped, y_mapped, day, timer):
     x = x_mapped[day + ' ' + timer + '-05:00']
     y = y_mapped[day + ' ' + timer + '-05:00']
+    
     return x, y
     
 
@@ -251,6 +252,7 @@ def draw_hsv(flow):
     return bgr, mag, ang, hsv
 
 
+
 # filepath = '20230807_normal/20230807152030.png'
 # filepath = '20230807_normal/20230807152100.png'
 
@@ -261,8 +263,19 @@ def draw_hsv(flow):
 # filepath = '20230807_normal/20230807171730.png'
 # next_filepath = '20230807_normal/20230807171800.png'
 
-filepath = '20230807_normal/20230807180130.png'
-next_filepath = '20230807_normal/20230807180200.png'
+# filepath = '20230807_normal/20230807180130.png'
+# next_filepath = '20230807_normal/20230807180200.png'
+
+
+# filepath = '20230807_normal/20230807124600.png'
+# next_filepath = '20230807_normal/20230807124630.png'
+
+
+filepath = '20230807_normal/20230807184630.png'
+next_filepath = '20230807_normal/20230807184700.png'
+
+
+
 
 
 
@@ -361,6 +374,34 @@ for num in range(1,num_labels+1):
 x_mapped, y_mapped, day = solar_pos(filepath)
 timer = get_time (filepath)
 solar_x, solar_y =  get_solar_coords (x_mapped, y_mapped, day, timer)
+solar_y = 480 - solar_y
+
+from skimage.draw import disk
+def average_disk_value(image, center, inner_radius, outer_radius):
+    # Create an array of coordinates for the disk
+    rr, cc = disk(center, outer_radius)
+    
+    # Remove coordinates outside the inner radius
+    inner_rr, inner_cc = disk(center, inner_radius)
+    mask = np.in1d(rr, inner_rr) & np.in1d(cc, inner_cc)
+    rr, cc = rr[mask], cc[mask]
+    
+    # Extract pixel values within the disk
+    values = image[rr, cc]
+    
+    # Calculate and return the average value
+    average_value = np.mean(values)
+    return average_value
+
+# Example usage
+point = (solar_y, solar_x)  # Replace this with the coordinates of your point
+
+inner_radius = 29
+outer_radius = 30
+
+result = average_disk_value(img, point, inner_radius, outer_radius)
+print("Average value within the disk:", result)
+
 
 
 covered = mask[round(solar_x),round(solar_y)] > 0
@@ -381,15 +422,15 @@ covered = mask[round(solar_x),round(solar_y)] > 0
 img = line_img
 # Create a figure and axis for the imag
 fig, ax = plt.subplots()
-ax.imshow(img, extent=[0, img.shape[1], 0, img.shape[0]])
+ax.imshow(img)
 ax.plot(solar_x, solar_y, 'r.', markersize=3, label=label)
 ax.text(0.2, 0.9, 'sun covered = '+str(covered), color = 'r',horizontalalignment='center',
      verticalalignment='center', transform=ax.transAxes)
 # ax.plot(x_mapped, y_mapped,'r' , label=label)
 
-plt.savefig('foo.png')
-plt.close() 
-# plt.show()
+# plt.savefig('foo.png')
+# plt.close() 
+plt.show()
 
 
 
