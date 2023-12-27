@@ -1,5 +1,6 @@
 import imageio.v2 as imageio
-from PIL import Image
+from PIL import Image, ImageDraw
+import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage.filters import *
@@ -13,11 +14,11 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 # path to jp2 image
 # filepath = '20230807/20230807110400.jp2'
-# filepath = '20230807/20230807110330.jp2'
+filepath = '20230807/20230807131700.jp2'
 # filepath = '20230807/20230807121300.jp2'
 # filepath = '20230807/20230807180600.jp2'
 # filepath = '20230807/20230807100230.jp2'
-filepath = '20230807/20230807163300.jp2'
+# filepath = '20230807/20230807163300.jp2'
 
 
 cutoff_radius = 200
@@ -79,15 +80,6 @@ def white_circle(slicee):
     circle_image = circle * slicee
     return circle_image
 
-def white_donut(slicee, internal_radius, external_radius):
-    shape = (480,640); center = (235, 314)
-    y, x = np.ogrid[:shape[0], :shape[1]]
-    circle1 = (x - center[1]) ** 2 + (y - center[0]) ** 2 <= external_radius ** 2
-    circle2 = (x - center[1]) ** 2 + (y - center[0]) ** 2 <= internal_radius ** 2
-    donut = circle2^circle1
-    donut_image = donut * slicee
-    return donut_image
-
 
 # # camera mask is multiplied to the image to make it the darkest part of it by -1
 camara = Image.open('camera.png')
@@ -95,20 +87,87 @@ camara = np.asarray(camara)
 # Only the alpha channel is needed, and is divided by 255 to get the number in the range [0,1]
 slicee = camara[:,:,3]/255
 circle = white_circle(slicee).astype(int)
+slicee = slicee.astype(bool)
 mask_circ = circle > 0
 
 
-
-
+# Load image
 image = imageio.imread(filepath)
 gauss = gaussian(image, sigma=20)*2**16-1
 image[image>np.max(gauss)]=np.max(gauss)
+
+
+## bird removal
+inv_mask = slicee == 0
+region_values = image[inv_mask]
+mean_value = np.mean(region_values)
+print(mean_value)
+# Parameters for the rectangle
+image_size = image.shape
+width = 75; height = 250
+top_left = (314-width/2, 200)
+bottom_right = (top_left[0] + width, top_left[1] + height)
+y, x = np.ogrid[:image_size[0], :image_size[1]]
+rectangle = (x >= top_left[0]) & (x <= bottom_right[0]) & (y >= top_left[1]) & (y <= bottom_right[1])
+rectangle_image = np.zeros(image_size)
+rectangle_image[rectangle] = 1
+
+
+rectangle_data = rectangle_image*image
+
+
+strip = rectangle_data[200:450,277:352]
+
+average_brightness_list = []
+average_std_list = []
+for y in range(height):
+    row_pixels = strip[y, :]
+    average_brightness = np.mean(row_pixels)
+    average_brightness_list.append(average_brightness)
+    average_std = np.std(row_pixels)
+    average_std_list.append(average_std)
+    
+
+for y in range(height):
+    strip[y, :] -= average_brightness_list[y] + average_std_list[y]*0.05
+    strip[y, :] = np.clip(strip[y, :], 0, None)
+    
+
+thresh  = threshold_yen(strip)
+binary = strip > thresh
+big_mask = remove_small(binary, c=0.005)
+bird_mask = rectangle_data*0
+bird_mask[200:450,277:352] = big_mask
+
+plt.subplot(1,4,1)
+plt.plot(range(1, 250 + 1), average_brightness_list, marker='o', linestyle='-', color='b', label='Average')
+
+plt.subplot(1,4,2)
+plt.imshow(big_mask)
+
+plt.subplot(1,4,3)
+plt.imshow(strip)
+
+im = rectangle_image*image
+plt.subplot(1,4,4)
+plt.imshow(im[200:450,277:352])
+# plt.colorbar()
+
+bird_mask = (bird_mask > 0).astype(bool)
+
+
+# plt.clf()
+final_mask = ~bird_mask & mask_circ
+plt.imshow(final_mask)
+
+
+
 # Image gets converted to int32
 int_img = image.astype(int)
 img = int_img * slicee
 img[img<1000] = np.max(np.min(int_img) - 1, 0)
 only_circle = ((img- np.min(img)) /
-               (np.max(img) - np.min(img)) * 2**16-1)*mask_circ
+                (np.max(img) - np.min(img)) * 2**16-1)*final_mask
 
 # Create a meshgrid of coordinates
 y, x = np.ogrid[:480, :640]
@@ -116,6 +175,7 @@ y, x = np.ogrid[:480, :640]
 distance_map = np.sqrt((x - 314)**2 + (y - 235)**2)
 # Create an array to store the average values for each ring
 average_values = np.zeros(cutoff_radius)
+std_dev_values = np.zeros(cutoff_radius)
 # Create a list to store pixel values and their coordinates
 pixel_values_and_coords = []
 
@@ -129,21 +189,22 @@ for r in range(1, cutoff_radius+1):
     ring_values = only_circle[ring_pixels]
     # Calculate the average value for the current ring
     average_values[r - 1] = np.mean(ring_values)
+    std_dev_values[r - 1] = np.std(ring_values)
     # Append pixel values and coordinates to the list
     pixel_values_and_coords.append((ring_values, ring_coords))
 
 # Find the average value of ring 70
-reference_average_value = average_values[15]  # Assuming 70 is the 70th ring (index 69)
-
-# Plot the average values before corrections
+reference_average_value = average_values[15] 
+# # Plot the average values before corrections
 plt.subplot(2, 2, 1)
-plt.plot(range(1, cutoff_radius + 1), average_values, marker='o', linestyle='-', color='b')
-plt.title('Average Value per Ring')
+plt.plot(range(1, cutoff_radius + 1), average_values, marker='o', linestyle='-', color='b', label='Average')
+plt.plot(range(1, cutoff_radius + 1), std_dev_values, marker='o', linestyle='-', color='r', label='Standard Deviation')
+plt.title('Before Corrections')
 plt.xlabel('Ring Number')
-plt.ylabel('Average Value')
+plt.ylabel('Value')
+plt.legend()
 plt.grid(True)
-
-# Apply corrections on a per ring basis
+# # Apply corrections on a per ring basis
 for i in range(len(pixel_values_and_coords)):
     ring_data = pixel_values_and_coords[i]
     correction_value = reference_average_value - average_values[i]
@@ -159,14 +220,18 @@ for ring_data in pixel_values_and_coords:
 
 # Compute and plot new average values after corrections
 new_average_values = np.zeros(cutoff_radius)
+new_std_values = np.zeros(cutoff_radius)
 for i in range(len(pixel_values_and_coords)):
     new_average_values[i] = np.mean(pixel_values_and_coords[i][0])
+    new_std_values[i] = np.std(pixel_values_and_coords[i][0])
+    
 
 plt.subplot(2, 2, 2)
-plt.plot(range(1, cutoff_radius+1), new_average_values, marker='o', linestyle='-', color='b')
-plt.title('Average Value per Ring (After Corrections)')
+plt.plot(range(1, cutoff_radius+1), new_average_values, marker='o', linestyle='-', color='b', label='Average')
+plt.plot(range(1, cutoff_radius+1), new_std_values, marker='o', linestyle='-', color='r', label='Standard Deviation')
+plt.title('After Corrections')
 plt.xlabel('Ring Number')
-plt.ylabel('Average Value')
+plt.ylabel('Value')
 plt.grid(True)
 
 # Display the original input image
@@ -174,6 +239,7 @@ plt.subplot(2, 2, 3)
 plt.imshow(only_circle)
 plt.title('Input Image')
 plt.colorbar()
+
 
 # Display the reconstructed image
 plt.subplot(2, 2, 4)
@@ -187,7 +253,6 @@ plt.show()
 
 
 
-
 rgba_image = TwoDToRGBA (reconstructed_image)
 image_size = rgba_image.shape
 gradient_center = (235, 314)  # Center of the gradient correponding to the center of the camera
@@ -198,14 +263,27 @@ gradient_radius = 250  # Radius of the gradient
 gradient_2 = create_radial_gradient(image_size, gradient_center, gradient_radius)
 rgba_grad_2 = TwoDToRGBA (gradient_2)
 first_grad = multiply_with_gradient(rgba_image, rgba_grad_1, 1)
-second_grad = multiply_with_gradient(first_grad, rgba_grad_2, 0)
-gauss = gaussian(second_grad[:,:,0], sigma=0.5)
-scaled_img = ((gauss - np.min(gauss)) / (np.max(gauss) - np.min(gauss)) * 2**16-1)*mask_circ
+# second_grad = multiply_with_gradient(first_grad, rgba_grad_2, 1)
+gauss = gaussian(first_grad[:,:,0], sigma=0.5)
+reconstructed_image = ((gauss - np.min(gauss)) / (np.max(gauss) - np.min(gauss)) * 2**16-1)*mask_circ
 
 
-fig, ax = try_all_threshold(scaled_img, figsize=(10, 6), verbose=False)
+# fig, ax = try_all_threshold(reconstructed_image, figsize=(10, 6), verbose=False)
 
-# thresh  = threshold_yen(scaled_img)
+thresh  = threshold_otsu(reconstructed_image)
+binary = reconstructed_image > thresh
+
+big_mask = remove_small(binary)
+label_big_mask = label(big_mask)
+big_clouds = rgba_image[:, :, 0] * big_mask * mask_circ
+
+# For ease of use the single channel image gets converted to RGB (similar to the RGBA process)
+output_img = TwoDToRGB(big_clouds)
+plt.imshow(output_img)
+
+
+# window_size=25
+# thresh  = threshold_niblack(scaled_img, window_size=window_size, k=0.4)
 # binary = scaled_img > thresh
 
 # big_mask = remove_small(binary)
@@ -216,9 +294,6 @@ fig, ax = try_all_threshold(scaled_img, figsize=(10, 6), verbose=False)
 # output_img = TwoDToRGB(big_clouds)
 
 # plt.imshow(output_img)
-
-
-
 
 
 
