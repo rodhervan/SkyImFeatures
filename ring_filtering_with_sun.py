@@ -11,6 +11,7 @@ from skimage.measure import label, regionprops
 from scipy import ndimage as ndi
 from scipy.interpolate import *
 import pvlib
+import copy
 import pandas as pd
 import blend_modes
 import warnings
@@ -24,7 +25,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 # filepath = '20230807/20230807100230.jp2'
 # filepath = '20230807/20230807163300.jp2'
 # filepath = '20230807/20230807152030.jp2'
-filepath = '20230807/20230807192300.jp2'
+# filepath = '20230807/20230807192300.jp2'
 # filepath = '20230808/20230808192300.jp2'
 
 
@@ -36,7 +37,7 @@ filepath = '20230807/20230807192300.jp2'
 # filepath = '20230808/20230808153730.jp2'
 # filepath = '20230808/20230808162300.jp2'
 # filepath = '20230808/20230808175830.jp2'
-# filepath = '20230808/20230808190630.jp2'
+filepath = '20230808/20230808190630.jp2'
 # filepath = '20230808/20230808200130.jp2'
 # filepath = '20230808/20230808201030.jp2'
 # filepath = '20230808/20230808213400.jp2'
@@ -397,67 +398,106 @@ plt.tight_layout()
 sun_values_and_coords, sun_avg, sun_std, sun_var = rings (reconstructed_image, 30, (new_solar_y, new_solar_x))
 
 # Calculate the "derivative" or differences between consecutive averages
-differences = np.diff(sun_avg)
+percentage_max = sun_avg/(np.max(sun_avg))*100
+differences = np.diff(percentage_max)
+second_d = np.diff(differences)
 # Find local maxima indices
 local_maxima_indices = np.where((differences[:-1] > 0) & (differences[1:] < 0))[0] + 1
+# no_sun = sun_values_and_coords
+no_sun = copy.deepcopy(sun_values_and_coords)
+if np.max(percentage_max) in percentage_max[0:6]:
+    flag = 'sun'
+    if (np.mean(percentage_max[6:]) < 10)&(np.std(percentage_max[6:])<6):
+        flag = 'sun_no_clouds'
+    if (np.mean(percentage_max[6:]) > 10)&(np.std(percentage_max[6:])<6):
+        flag = 'sun_minor_clouds'
+    if (np.mean(percentage_max[6:]) > 50)&(np.std(percentage_max[6:])<9):
+        flag = 'sun_major_clouds'
+    if any(i > 80 for i in percentage_max[6:]): 
+        flag = 'cloudy_around_sun'   
+else:
+    flag = 'sun_covered'
+
+for n in range(0, 7):
+    if (percentage_max[n]>50)&((flag=='sun_no_clouds')|(flag=='sun_minor_clouds')|(flag=='sun_major_clouds')):
+        no_sun[n][0][:] = -1
+
+print(flag)
+print(np.mean(percentage_max[6:]))
+print(np.std(percentage_max[6:]))
+print(np.var(percentage_max[6:]))
+
 
 
 sun_img = np.zeros_like(reconstructed_image)
-for ring_data in sun_values_and_coords:
+for ring_data in no_sun:
     ring_values, ring_coords = ring_data
     sun_img[ring_coords[:, 0], ring_coords[:, 1]] = ring_values
 plt.clf()
 plt.imshow(sun_img, cmap = 'jet')
 plt.colorbar()
-plt.show()
 
 
+sun_mask = sun_img == -1
+no_sun_image = ~sun_mask*reconstructed_image
+# no_sun_image = reconstructed_image
+plt.clf()
+plt.imshow(no_sun_image)
+plt.colorbar()
 
 
+rgba_image = TwoDToRGBA (no_sun_image)
+image_size = rgba_image.shape
+gradient_center = (235, 314)  # Center of the gradient correponding to the center of the camera
+gradient_radius = 210  # Radius of the gradient
+gradient_1 = create_radial_gradient(image_size, gradient_center, gradient_radius)
+rgba_grad_1 = TwoDToRGBA (gradient_1)
+gradient_radius = 250  # Radius of the gradient
+gradient_2 = create_radial_gradient(image_size, gradient_center, gradient_radius)
+rgba_grad_2 = TwoDToRGBA (gradient_2)
+first_grad = multiply_with_gradient(rgba_image, rgba_grad_1, 1)
+# second_grad = multiply_with_gradient(first_grad, rgba_grad_2, 1)
+gauss = gaussian(first_grad[:,:,0], sigma=0.5)
+no_sun_image = ((gauss - np.min(gauss)) / (np.max(gauss) - np.min(gauss)) * 2**16-1)*mask_circ
 
 
-# rgba_image = TwoDToRGBA (reconstructed_image)
-# image_size = rgba_image.shape
-# gradient_center = (235, 314)  # Center of the gradient correponding to the center of the camera
-# gradient_radius = 210  # Radius of the gradient
-# gradient_1 = create_radial_gradient(image_size, gradient_center, gradient_radius)
-# rgba_grad_1 = TwoDToRGBA (gradient_1)
-# gradient_radius = 250  # Radius of the gradient
-# gradient_2 = create_radial_gradient(image_size, gradient_center, gradient_radius)
-# rgba_grad_2 = TwoDToRGBA (gradient_2)
-# first_grad = multiply_with_gradient(rgba_image, rgba_grad_1, 1)
-# # second_grad = multiply_with_gradient(first_grad, rgba_grad_2, 1)
-# gauss = gaussian(first_grad[:,:,0], sigma=0.5)
-# reconstructed_image = ((gauss - np.min(gauss)) / (np.max(gauss) - np.min(gauss)) * 2**16-1)*mask_circ
+# fig, ax = try_all_threshold(no_sun_image, figsize=(10, 6), verbose=False)
 
+thresh  = threshold_otsu(no_sun_image)
+binary = no_sun_image > thresh
 
-# # fig, ax = try_all_threshold(reconstructed_image, figsize=(10, 6), verbose=False)
+big_mask = remove_small(binary)
+label_big_mask = label(big_mask)
+big_clouds = rgba_image[:, :, 0] * big_mask * mask_circ * ~sun_mask
 
-# thresh  = threshold_otsu(reconstructed_image)
-# binary = reconstructed_image > thresh
+# For ease of use the single channel image gets converted to RGB (similar to the RGBA process)
+output_img = TwoDToRGB(big_clouds)
+plt.clf()
+plt.subplot(2,2,1)
+plt.imshow(image)
 
-# big_mask = remove_small(binary)
-# label_big_mask = label(big_mask)
-# big_clouds = rgba_image[:, :, 0] * big_mask * mask_circ
+plt.subplot(2,2,2)
+plt.imshow(reconstructed_image)
 
-# # For ease of use the single channel image gets converted to RGB (similar to the RGBA process)
-# output_img = TwoDToRGB(big_clouds)
-# plt.clf()
-# plt.imshow(output_img)
+plt.subplot(2,2,3)
+plt.imshow(no_sun_image)
+plt.title(flag)
 
+plt.subplot(2,2,4)
+plt.imshow(output_img)
 
-# window_size=25
-# thresh  = threshold_niblack(scaled_img, window_size=window_size, k=0.4)
-# binary = scaled_img > thresh
+# # window_size=25
+# # thresh  = threshold_niblack(scaled_img, window_size=window_size, k=0.4)
+# # binary = scaled_img > thresh
 
-# big_mask = remove_small(binary)
-# label_big_mask = label(big_mask)
-# big_clouds = rgba_image[:, :, 0] * big_mask * mask_circ
+# # big_mask = remove_small(binary)
+# # label_big_mask = label(big_mask)
+# # big_clouds = rgba_image[:, :, 0] * big_mask * mask_circ
 
-# # For ease of use the single channel image gets converted to RGB (similar to the RGBA process)
-# output_img = TwoDToRGB(big_clouds)
+# # # For ease of use the single channel image gets converted to RGB (similar to the RGBA process)
+# # output_img = TwoDToRGB(big_clouds)
 
-# plt.imshow(output_img)
+# # plt.imshow(output_img)
 
 
 
