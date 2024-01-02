@@ -48,7 +48,7 @@ def solar_pos(filepath):
 
     #Ubicación Geográfica
     location = pvlib.location.Location(lat, lon, tz, altitude)
-    times = pd.date_range('2023-01-01 00:00:00', '2024-12-31', closed='left',
+    times = pd.date_range('2023-01-01 00:00:00', '2024-12-31', inclusive='left',
                           freq='H', tz=tz)
     solpos = pvlib.solarposition.get_solarposition(times, lat, lon)
     # remove nighttime

@@ -2,23 +2,13 @@ import numpy as np
 from numpy import asarray
 from PIL import Image, ImageOps
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import skimage
 from skimage.segmentation import clear_border
-from skimage import data, exposure, img_as_float
 from skimage.filters import threshold_otsu
-from skimage import measure
-from skimage.measure import label,regionprops
-from skimage.morphology import closing, square
-from skimage.color import label2rgb
-from skimage import io, color, segmentation
-from scipy import ndimage as ndi
-from scipy.ndimage import measurements, center_of_mass, binary_dilation, zoom
+from skimage import measure, color, segmentation, io
+from skimage.measure import label, regionprops
 import blend_modes
-import plotly.graph_objects as go
 import pandas as pd
 import pvlib
-from skimage.draw import line, line_aa
 import cv2
 import time
 import os
@@ -26,40 +16,19 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
-
-
-# angulo de elevacion
-
-# filepath = '20230807_normal/20230807152030.png'
-# filepath = '20230807_normal/20230807152100.png'
-
-# filepath = '20230807_normal/20230807163300.png'
-# filepath = '20230807_normal/20230807100030.png'
-# filepath = '20230807_normal/20230807192000.png'
-# filepath = '20230807_normal/20230807175600.png'
-# filepath = '20230807_normal/20230807210600.png'
-# filepath = '20230807_normal/20230807211330.png'
-
 def solar_pos(filepath):
     
     tz = 'America/Bogota'
     lat, lon = 9.789103, -73.722451 # 9.789103, -73.722451 Esta es las coordenas
-    altitude = 50
+    # altitude = 50
 
     #Ubicación Geográfica
-    location = pvlib.location.Location(lat, lon, tz, altitude)
-    times = pd.date_range('2023-01-01 00:00:00', '2024-12-31', closed='left',
+    # location = pvlib.location.Location(lat, lon, tz, altitude)
+    times = pd.date_range('2023-01-01 00:00:00', '2024-12-31', inclusive='left',
                           freq='H', tz=tz)
     solpos = pvlib.solarposition.get_solarposition(times, lat, lon)
     # remove nighttime
     solpos = solpos.loc[solpos['apparent_elevation'] > 0, :]
-    # draw hour labels
-    for hour in np.unique(solpos.index.hour):
-        # choose label position by the smallest radius for each hour
-        subset = solpos.loc[solpos.index.hour == hour, :]
-        r = subset.apparent_zenith
-        pos = solpos.loc[r.idxmin(), :]
-        # ax.text(np.radians(pos['azimuth']), pos['apparent_zenith'], str(hour))
     YY = filepath[-18:-14]
     MM = filepath[-14:-12]
     DD = filepath[-12:-10]
@@ -69,9 +38,8 @@ def solar_pos(filepath):
         times = pd.date_range(date, date+pd.Timedelta('24h'), freq='30s', tz=tz)
         solpos = pvlib.solarposition.get_solarposition(times, lat, lon)
         solpos = solpos.loc[solpos['apparent_elevation'] > 0, :]
-        label = date.strftime('%Y-%m-%d')
         azimuth_radians = np.radians(solpos.azimuth)
-
+        
     # Convert polar coordinates to Cartesian coordinates
     x_direct = solpos.apparent_zenith * np.sin(azimuth_radians)
     y_direct = solpos.apparent_zenith * np.cos(azimuth_radians)
@@ -109,7 +77,6 @@ def get_solar_coords (x_mapped, y_mapped, day, timer):
     
     return x, y
     
-
 
 def TwoDToRGBA (img):
     background_img_raw = img
@@ -253,26 +220,27 @@ def draw_hsv(flow):
 
 
 
-# filepath = '20230807_normal/20230807152030.png'
-# filepath = '20230807_normal/20230807152100.png'
-
 
 # filepath = '20230807_normal/20230807152030.png'
 # next_filepath = '20230807_normal/20230807152100.png'
 
-# filepath = '20230807_normal/20230807171730.png'
-# next_filepath = '20230807_normal/20230807171800.png'
+filepath = '20230807_normal/20230807171730.png'
+next_filepath = '20230807_normal/20230807171800.png'
 
 # filepath = '20230807_normal/20230807180130.png'
 # next_filepath = '20230807_normal/20230807180200.png'
 
-
 # filepath = '20230807_normal/20230807124600.png'
 # next_filepath = '20230807_normal/20230807124630.png'
 
+# filepath = '20230807_normal/20230807155630.png'
+# next_filepath = '20230807_normal/20230807155700.png'
 
-filepath = '20230807_normal/20230807184630.png'
-next_filepath = '20230807_normal/20230807184700.png'
+# filepath = '20230806_normal/20230806162500.png'
+# next_filepath = '20230806_normal/20230806162530.png'
+
+# filepath = '20230807_normal/20230807184630.png'
+# next_filepath = '20230807_normal/20230807184700.png'
 
 
 
@@ -308,9 +276,9 @@ fps = 1 / (end-start)
 draw_flow_img = draw_flow(gray, flow)
 draw_flow_prev = draw_flow(prevgray, flow)
 draw_hsv_img, mag, ang, hsv = draw_hsv(flow)
-# cv2.imshow('flow', draw_flow_img)
+cv2.imshow('flow', draw_flow_img)
 # cv2.imshow('flow_prev', draw_flow_prev)
-# cv2.imshow('flow HSV', draw_hsv_img)
+cv2.imshow('flow HSV', draw_hsv_img)
 key = cv2.waitKey(5)
 
 # cv2.imwrite('flow.png', draw_flow_img)
@@ -365,10 +333,6 @@ for num in range(1,num_labels+1):
         
 # io.imshow(line_img)
 
-
-# solpos.apparent_zenith['2023-08-07 18:01:30-05:00']
-
-
 # filepath = '20230808_normal/20230808190630.png'
     
 x_mapped, y_mapped, day = solar_pos(filepath)
@@ -403,21 +367,7 @@ result = average_disk_value(img, point, inner_radius, outer_radius)
 print("Average value within the disk:", result)
 
 
-
 covered = mask[round(solar_x),round(solar_y)] > 0
-
-
-# img = Image.open(filepath)
-# img = asarray(img)
-# raw = img
-# camara = Image.open('camara.png')
-# camara = asarray(camara)
-# slicee = camara[:,:,3]
-# img = img* slicee
-# from_array = Image.fromarray(img)
-# im_flip = ImageOps.flip(from_array)
-# im_rotate = im_flip.rotate(-3.3, center=(314, 235))
-# img = asarray(im_rotate)
 
 img = line_img
 # Create a figure and axis for the imag

@@ -30,7 +30,7 @@ import os
 
 img_array = []
 
-folder_path = 'D:\\RODRIGO\\Tesis IMEC\\Python\\20230807_sun_pos'
+folder_path = 'D:\\RODRIGO\\Tesis IMEC\\Python\\20230807_seg_yen'
 if os.path.exists(folder_path):
     direction = glob.glob(f'{folder_path}/*.png')
 else:
@@ -45,7 +45,7 @@ for filename in direction:
     size = (width,height)
     img_array.append(img)
 
-out = cv2.VideoWriter('20230807_general.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, size)
+out = cv2.VideoWriter('20230807_yen.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, size)
 
 for i in range(len(img_array)):
     out.write(img_array[i])
