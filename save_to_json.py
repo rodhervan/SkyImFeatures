@@ -1,28 +1,3 @@
-# import imageio.v2 as imageio
-# from PIL import Image, ImageDraw
-# import cv2
-# import numpy as np
-# import matplotlib.pyplot as plt
-# from skimage.filters import *
-# from skimage.metrics import *
-# from skimage.segmentation import *
-# from skimage.feature import *
-# from skimage.measure import label, regionprops, centroid
-# from skimage import measure, color, io
-# from skimage.filters import threshold_otsu
-# from scipy import ndimage as ndi
-# import time 
-# from scipy.interpolate import *
-# import pvlib
-# import copy
-# import pandas as pd
-# import blend_modes
-# import warnings
-# import os
-# import json
-# warnings.simplefilter(action='ignore', category=FutureWarning)
-
-
 import imageio.v2 as imageio
 from PIL import Image, ImageDraw
 import cv2
@@ -487,7 +462,7 @@ plt.title(sun)
 # Load sun data from sun_data.json
 
 
-# Parameter definitos for LK optical flow and border detection
+# Parameter definitions for LK optical flow and border detection
 preseg = False
 lk_params = dict(winSize=(15, 15),
                   maxLevel=2,
@@ -507,14 +482,14 @@ flow = np.empty((480, 640, 2))
 
 # Specify the path to the folder containing images
 
-image_folder = '20230807'
+# image_folder = '20230807'
 
 
-# # # presegemented image folder (for speed)
-# image_folder = '20230807_seg_corrected'
-# preseg = True
-# with open('sun_data.json', 'r', encoding='utf-8') as sun_file:
-#     sun_data = json.load(sun_file)
+# presegemented image folder (for speed)
+image_folder = '20230807_seg_corrected'
+preseg = True
+with open('sun_data.json', 'r', encoding='utf-8') as sun_file:
+    sun_data = json.load(sun_file)
 
 
 
@@ -539,12 +514,12 @@ for image_file in image_files[900:965]:
     image_path = os.path.join(image_folder, image_file)
 
     # Read and preprocess the image
+    x_mapped, y_mapped, day = solar_pos(image_path)
+    timer = get_time (image_path)
+    solar_x, solar_y, covered = solar_xy (timer, x_mapped, y_mapped, day)
+    new_solar_x = poly_x(solar_x)
+    new_solar_y = poly_y(solar_y)
     if not preseg:
-        x_mapped, y_mapped, day = solar_pos(image_path)
-        timer = get_time (image_path)
-        solar_x, solar_y, covered = solar_xy (timer, x_mapped, y_mapped, day)
-        new_solar_x = poly_x(solar_x)
-        new_solar_y = poly_y(solar_y)
         frame, sun = segmentation(image_path)
     
     # Get sun data for the current image_file
@@ -600,6 +575,7 @@ for image_file in image_files[900:965]:
         cv2.putText(lk_img, image_file, (450, 460), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         cv2.putText(lk_img, sun, (450, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         cv2.putText(lk_img, 'Trajectories: %d' % len(trajectories), (20, 50), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0), 1)
+        cv2.circle(lk_img, (round(new_solar_x), round(new_solar_y)), 4, (255, 0, 0), -1)
         
         
 
