@@ -586,7 +586,7 @@ for image_file in image_files[900:965]:
             new_trajectories.append(trajectory); new_trajectories_vel.append(trajectory_vel)
             # Draw the newest detected point
             arrow_len = 3
-            delta = 20
+            delta = 10
             if not((new_solar_x + delta > x)&(new_solar_x - delta < x)&(
                     new_solar_y + delta > y)&(new_solar_y - delta < y)):
                     cv2.circle(lk_img, (int(x), int(y)), 4, (0, 0, 255), -1)
