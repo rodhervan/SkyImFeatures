@@ -228,7 +228,7 @@ def rings (img, slicee,cutoff_radius=200, center=(235,314)):
         pixel_values_and_coords.append((ring_values, ring_coords))
     return pixel_values_and_coords, average_values, std_dev_values, var_values
 
-def segmentation (filepath):
+def segmentation (filepath, ret_coords = False):
     # # camera mask is multiplied to the image to make it the darkest part of it by -1
     camara = Image.open('camera.png')
     camara = np.asarray(camara)
@@ -347,10 +347,10 @@ def segmentation (filepath):
             flag = 'sun_covered'
         return flag
          
-
+    bad_calibration = False
     flag = evaluate_sun (percentage_max)
     sun_img = np.zeros_like(reconstructed_image) 
-     
+    # Tries to fin the sun if the input coords where off
     if flag == 'sun':
         for ring_data in sun_values_and_coords[:]:
             ring_values, ring_coords = ring_data
@@ -386,6 +386,7 @@ def segmentation (filepath):
             
             thresh = np.max(sun_img)*0.5
             sun_mask = sun_img > thresh
+            sun_x, sun_y = centroid(sun_mask)
             
     elif (flag=='sun_major_clouds'):
         cut = True
@@ -397,6 +398,7 @@ def segmentation (filepath):
             ring_values, ring_coords = ring_data
             sun_img[ring_coords[:, 0], ring_coords[:, 1]] = ring_values
         sun_mask = sun_img == -1
+        sun_x, sun_y = centroid(sun_mask)
         for ring_data in sun_values_and_coords[:]:
             ring_values, ring_coords = ring_data
             sun_img[ring_coords[:, 0], ring_coords[:, 1]] = ring_values
@@ -407,8 +409,10 @@ def segmentation (filepath):
     # print(flag)
     if cut:
         no_sun_image = ~sun_mask*reconstructed_image
+        out_x, out_y = sun_x, sun_y
     else:
         no_sun_image = reconstructed_image
+        out_x, out_y = new_solar_y, new_solar_x
     plt.imshow(no_sun_image)
 
 
@@ -435,7 +439,10 @@ def segmentation (filepath):
 
     # For ease of use the single channel image gets converted to RGB (similar to the RGBA process)
     output_img = TwoDToRGB(big_clouds)
-    return output_img, flag
+    if ret_coords:
+        return output_img, flag, out_x, out_y, bad_calibration
+    else:
+        return output_img, flag
 
 
 filepath = '20230807/20230807163300.jp2'
@@ -449,11 +456,9 @@ new_solar_x = poly_x(solar_x)
 new_solar_y = poly_y(solar_y)
 
 output_img, sun = segmentation(filepath)
-
-
-plt.clf()
-plt.imshow(output_img)
-plt.title(sun)
+# plt.clf()
+# plt.imshow(output_img)
+# plt.title(sun)
 
 
 
@@ -485,7 +490,7 @@ flow = np.empty((480, 640, 2))
 # image_folder = '20230807'
 
 
-# presegemented image folder (for speed)
+# # presegemented image folder (for speed)
 image_folder = '20230807_seg_corrected'
 preseg = True
 with open('sun_data.json', 'r', encoding='utf-8') as sun_file:
@@ -497,9 +502,11 @@ with open('sun_data.json', 'r', encoding='utf-8') as sun_file:
 image_files = sorted([f for f in os.listdir(image_folder) if f.endswith(('.jpg', '.png', '.jpeg', '.jp2'))])
 # Read and preprocess the first image
 first_im = os.path.join(image_folder, image_files[0])
+x_mapped, y_mapped, day = solar_pos(first_im)
 
 if not preseg:
-    prev_gray, sun  = segmentation(first_im)
+    prev_gray, sun, corrected_x, corrected_y, bad_calibration  = segmentation(first_im, ret_coords=True)
+    new_coords = [corrected_x, corrected_y]
 # # If the images are already segmented use the command below
 if preseg:
     prev_gray = cv2.imread(first_im)
@@ -508,25 +515,35 @@ prev_gray = cv2.cvtColor(prev_gray, cv2.COLOR_BGR2GRAY)
 
 image_data = {}
 
-# for image_file in image_files[900:965]:
 for image_file in image_files[900:965]:
+# for image_file in image_files[900:965]:
     # Construct the full path to the image
     image_path = os.path.join(image_folder, image_file)
 
     # Read and preprocess the image
-    x_mapped, y_mapped, day = solar_pos(image_path)
+    
     timer = get_time (image_path)
     solar_x, solar_y, covered = solar_xy (timer, x_mapped, y_mapped, day)
     new_solar_x = poly_x(solar_x)
     new_solar_y = poly_y(solar_y)
     if not preseg:
-        frame, sun = segmentation(image_path)
+        frame, sun, corrected_x, corrected_y, bad_calibration  = segmentation(image_path, ret_coords=True)
+        new_coords = [corrected_x, corrected_y]
     
     # Get sun data for the current image_file
     if preseg:
         frame = cv2.imread(image_path)
         preprocess_name = image_file[:-3]+'jp2'
-        sun = sun_data.get(preprocess_name, "no value")
+        if preprocess_name in sun_data:
+            if 'coords'in sun_data[preprocess_name]:
+                new_coords = sun_data[preprocess_name]['coords']
+            else:
+                new_coords = [new_solar_x, new_solar_y]
+            if 'sun' in sun_data[preprocess_name]:
+                sun = sun_data[preprocess_name]['sun']
+            else:
+                sun = 'no value'
+
     
     # Image gets transformed to single channel gray
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -548,7 +565,9 @@ for image_file in image_files[900:965]:
         image_data[image_file] = {
             'sun': sun,
             'trajectories': trajectories_list,
-            'flow_info': trajectories_list_vel
+            'flow_info': trajectories_list_vel,
+            'sun_pos_pvlib':[new_solar_x, new_solar_y],
+            'sun_pos_calculated': [new_coords[1],new_coords[0]]
         }
         
         
@@ -557,8 +576,8 @@ for image_file in image_files[900:965]:
         # Get all the trajectories
         for trajectory, trajectory_vel, (x, y), good_flag in zip(trajectories, trajectories_vel, p1.reshape(-1, 2), good):
             r_y, r_x = round(y), round(x)
-            # if (r_y<480)&(r_x<640):
-            vel_x, vel_y = flow[r_y, r_x, :]
+            if (r_y<480)&(r_x<640):
+                vel_x, vel_y = flow[r_y, r_x, :]
             if not good_flag:
                 continue
             trajectory.append((x, y)); trajectory_vel.append((vel_x, vel_y))
@@ -566,16 +585,34 @@ for image_file in image_files[900:965]:
                 del trajectory[0], trajectory_vel[0]
             new_trajectories.append(trajectory); new_trajectories_vel.append(trajectory_vel)
             # Draw the newest detected point
-            cv2.circle(lk_img, (int(x), int(y)), 4, (0, 0, 255), -1)
+            arrow_len = 3
+            delta = 20
+            if not((new_solar_x + delta > x)&(new_solar_x - delta < x)&(
+                    new_solar_y + delta > y)&(new_solar_y - delta < y)):
+                    cv2.circle(lk_img, (int(x), int(y)), 4, (0, 0, 255), -1)
+
+                    cv2.arrowedLine(lk_img,(int(x), int(y)),
+                            (int(x + vel_x * arrow_len), int(y + vel_y * arrow_len)),
+                            (255,255,0), 1)
             
         trajectories = new_trajectories; trajectories_vel = new_trajectories_vel
 
         # Draw all the trajectories
-        cv2.polylines(lk_img, [np.int32(trajectory) for trajectory in trajectories], False, (0, 255, 0))
+        # skip the ones very close to the sun position
+        for trajectory in trajectories:
+            for co in trajectory:
+                if not((new_solar_x + delta > co[0])&(new_solar_x - delta <  co[0])&(
+                        new_solar_y + delta >  co[1])&(new_solar_y - delta <  co[1])):
+                    cv2.polylines(lk_img, [np.int32(trajectory) ], False, (0, 255, 0))
         cv2.putText(lk_img, image_file, (450, 460), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        cv2.putText(lk_img, sun, (450, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        cv2.putText(lk_img, sun, (450, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
         cv2.putText(lk_img, 'Trajectories: %d' % len(trajectories), (20, 50), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0), 1)
-        cv2.circle(lk_img, (round(new_solar_x), round(new_solar_y)), 4, (255, 0, 0), -1)
+        # # scaled sun position from pvlib
+        cv2.circle(lk_img, (round(new_solar_x), round(new_solar_y)), 2, (255, 0, 0), -1)
+        # # predicted sun position
+        cv2.circle(lk_img, (round(new_coords[1]), round(new_coords[0])), 3, (255, 0, 255), -1)
+
+        
         
         
 
@@ -644,10 +681,10 @@ for image_file in image_files[900:965]:
             for labl in range(1,small_id+1): 
                 centroide = measure.centroid(label_over_small == labl)
                 all_centroids.append(centroide)
-                line_img = cv2.arrowedLine(frame,
-                                    (int(centroide[1]), int(centroide[0])),
-                                    (int(centroide[1] + average_non_zero_x * 5), int(centroide[0] + average_non_zero_y * 5)),
-                                    (0,255,0), 2)
+                # lk_img = cv2.arrowedLine(lk_img,
+                #                     (int(centroide[1]), int(centroide[0])),
+                #                     (int(centroide[1] + average_non_zero_x * 5), int(centroide[0] + average_non_zero_y * 5)),
+                #                     (255,255,0), 1)
 
         centroids_array = np.float32(all_centroids).reshape(-1, 1, 2)
         # Use the points from centroids_array
@@ -666,6 +703,13 @@ for image_file in image_files[900:965]:
     # Show Results
     cv2.imshow('Optical Flow', lk_img)
     # cv2.imshow('Mask', mask)
+    
+    # Save plots to folder
+    output_directory = 'Fully_processed'
+    os.makedirs(output_directory, exist_ok=True)
+    output_name = image_file[:-3] + 'png'
+    new_path = os.path.join(output_directory, output_name)
+    plt.imsave(new_path, lk_img)
 
     if cv2.waitKey(10) & 0xFF == ord('q'):
         break

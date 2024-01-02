@@ -134,7 +134,7 @@ def solar_pos(filepath):
     for date in pd.to_datetime([day]):
         times = pd.date_range(date, date+pd.Timedelta('24h'), freq='30s', tz=tz)
         solpos = pvlib.solarposition.get_solarposition(times, lat, lon)
-        solpos = solpos.loc[solpos['apparent_elevation'] > 0, :]
+        # solpos = solpos.loc[solpos['apparent_elevation'] > 0, :]
         label = date.strftime('%Y-%m-%d')
         azimuth_radians = np.radians(solpos.azimuth)
 
@@ -253,7 +253,7 @@ def rings (img, slicee,cutoff_radius=200, center=(235,314)):
         pixel_values_and_coords.append((ring_values, ring_coords))
     return pixel_values_and_coords, average_values, std_dev_values, var_values
 
-def segmentation (filepath):
+def segmentation (filepath, ret_coords = False):
     # # camera mask is multiplied to the image to make it the darkest part of it by -1
     camara = Image.open('camera.png')
     camara = np.asarray(camara)
@@ -371,11 +371,11 @@ def segmentation (filepath):
         else:
             flag = 'sun_covered'
         return flag
-         
+    bad_calibration = False
 
     flag = evaluate_sun (percentage_max)
     sun_img = np.zeros_like(reconstructed_image) 
-     
+    # Tries to fin the sun if the input coords where off
     if flag == 'sun':
         for ring_data in sun_values_and_coords[:]:
             ring_values, ring_coords = ring_data
@@ -411,6 +411,7 @@ def segmentation (filepath):
             
             thresh = np.max(sun_img)*0.5
             sun_mask = sun_img > thresh
+            sun_x, sun_y = centroid(sun_mask)
             
     elif (flag=='sun_major_clouds'):
         cut = True
@@ -422,6 +423,7 @@ def segmentation (filepath):
             ring_values, ring_coords = ring_data
             sun_img[ring_coords[:, 0], ring_coords[:, 1]] = ring_values
         sun_mask = sun_img == -1
+        sun_x, sun_y = centroid(sun_mask)
         for ring_data in sun_values_and_coords[:]:
             ring_values, ring_coords = ring_data
             sun_img[ring_coords[:, 0], ring_coords[:, 1]] = ring_values
@@ -432,8 +434,10 @@ def segmentation (filepath):
     # print(flag)
     if cut:
         no_sun_image = ~sun_mask*reconstructed_image
+        out_x, out_y = sun_x, sun_y
     else:
         no_sun_image = reconstructed_image
+        out_x, out_y = new_solar_y, new_solar_x
     plt.imshow(no_sun_image)
 
 
@@ -460,13 +464,16 @@ def segmentation (filepath):
 
     # For ease of use the single channel image gets converted to RGB (similar to the RGBA process)
     output_img = TwoDToRGB(big_clouds)
-    return output_img, flag
+    if ret_coords:
+        return output_img, flag, out_x, out_y, bad_calibration
+    else:
+        return output_img, flag
 
 
 poly_x, poly_y = solar_calibration()
 
 # Create the 'modified' directory if it doesn't exist
-output_directory = '20230807_seg_corrected'
+output_directory = '20230807_segmented'
 os.makedirs(output_directory, exist_ok=True)
 
 # Load existing sun_data from JSON if it exists
@@ -476,7 +483,9 @@ if os.path.isfile(sun_data_file):
         sun_data = json.load(f)
 else:
     sun_data = {}
- 
+
+x_mapped, y_mapped, day = solar_pos('20230807/20230807231500.jp2')
+
 # iterate over files in
 directory = '20230807'
 for filename in os.scandir(directory):
@@ -485,22 +494,23 @@ for filename in os.scandir(directory):
         input_name = directory + '/' + name
 
         # Check if the image file already exists in the output directory
-        output_name = name[:-3] + 'jpg'
+        # output_name = name[:-3] + 'jpg'
+        output_name = name[:-3] + 'png'
         new_path = os.path.join(output_directory, output_name)
         if os.path.exists(new_path):
             # print(f"Skipped {output_name} as it already exists in the output directory.")
             continue
 
-        x_mapped, y_mapped, day = solar_pos(input_name)
+
         timer = get_time(input_name)
         solar_x, solar_y, covered = solar_xy(timer, x_mapped, y_mapped, day)
 
         new_solar_x = poly_x(solar_x)
         new_solar_y = poly_y(solar_y)
 
-        output_img, flag = segmentation(input_name)
+        output_img, flag, x, y, bad_calibration = segmentation(input_name, ret_coords=True)
 
-        sun_data[name] = flag
+        sun_data[name] = {'sun':flag, 'coords':[x,y]}
 
         plt.clf()
         plt.imshow(output_img)
