@@ -3,32 +3,32 @@ import numpy as np
 import glob
 import os
 
-
-
-
 img_array = []
 
-folder_path = 'D:\\RODRIGO\\Tesis IMEC\\Python\\20230807_seg_avg'
+# # # Using global path to folder
+# folder_path = 'D:\\RODRIGO\\Tesis IMEC\\Python\\Fully_processed'
+# if os.path.exists(folder_path):
+#     direction = glob.glob(f'{folder_path}/*.png')
+# else:
+#     print(f"Folder '{folder_path}' does not exist.")
+
+# # # Using a relative path instead of an absolute path
+folder_path = 'Fully_processed'
+folder_path = os.path.join(os.getcwd(), folder_path)
 if os.path.exists(folder_path):
-    direction = glob.glob(f'{folder_path}/*.png')
+    direction = glob.glob(os.path.join(folder_path, '*.png'))
 else:
     print(f"Folder '{folder_path}' does not exist.")
 
 for filename in direction:
     img = cv2.imread(filename)
-    
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    bottom_left_corner = (10, 30)
-    font_scale = 1
-    font_color = (255, 255, 255)  # White color in BGR
-    font_thickness = 2
-    # cv2.putText(img, os.path.basename(filename), bottom_left_corner, font, font_scale, font_color, font_thickness)
+    # cv2.putText(img, os.path.basename(filename), (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
     height, width, layers = img.shape
     size = (width,height)
     img_array.append(img)
-
-out = cv2.VideoWriter('20230807_avg.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, size)
+fps = 30
+out = cv2.VideoWriter('20230807_avg.avi',cv2.VideoWriter_fourcc(*'DIVX'), fps, size)
 
 for i in range(len(img_array)):
     out.write(img_array[i])

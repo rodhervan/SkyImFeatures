@@ -18,6 +18,7 @@ import blend_modes
 import warnings
 import os
 import json
+from datetime import datetime
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
@@ -132,7 +133,7 @@ def solar_pos(filepath):
 
     return x_final, y_final, day
 
-# gets the time from the filepath following the convention '~/YYYYMMDDhhmmss.png'
+# gets the time from the filepath following the convention '~/YYYYMMDDhhmmss.jp2'
 def get_time (filepath):
     st = filepath[-10:-4]
     hh = str(int(st[0:2])-5)
@@ -328,13 +329,13 @@ def rings (img, final_mask, cutoff_radius=200, center=(235,314), glob_list = Fal
 # filepath = '20230808/20230808131100.jp2'
 # filepath = '20230807/20230807220400.jp2'
 def average_curve():
-    # filepath_list = ['20230808/20230808131100.jp2', '20230808/20230808140700.jp2',
-    #                  '20230808/20230808153730.jp2', '20230808/20230808131700.jp2',
-    #                  '20230808/20230808175830.jp2', '20230807/20230807220400.jp2',
-    #                  '20230807/20230807221330.jp2' ,'20230807/20230807214200.jp2']
     filepath_list = ['20230808/20230808131100.jp2', '20230808/20230808140700.jp2',
                      '20230808/20230808153730.jp2', '20230808/20230808131700.jp2',
-                     '20230808/20230808175830.jp2']
+                     '20230808/20230808175830.jp2', '20230807/20230807220400.jp2',
+                     '20230807/20230807221330.jp2' ,'20230807/20230807214200.jp2']
+    # filepath_list = ['20230808/20230808131100.jp2', '20230808/20230808140700.jp2',
+    #                  '20230808/20230808153730.jp2', '20230808/20230808131700.jp2',
+    #                  '20230808/20230808175830.jp2']
     norm_average_values_list = []
     for filepath in filepath_list:
         only_circle, final_mask = load_and_cut (filepath) 
@@ -528,108 +529,98 @@ def segmentation (filepath, ret_coords = False):
 
     thresh  = threshold_otsu(gradient_image)
     binary = gradient_image > thresh
-
+    
+    total_mask = final_mask*~sun_mask
     big_mask = remove_small(binary)
-    big_clouds = rgba_image[:, :, 0] * big_mask * final_mask * ~sun_mask
-
+    big_clouds = rgba_image[:, :, 0] * big_mask * total_mask
+    cloud_factor = np.sum(big_mask)/np.sum(total_mask)
     # For ease of use the single channel image gets converted to RGB (similar to the RGBA process)
     output_img = TwoDToRGB(big_clouds)
+
     if ret_coords:
-        return output_img,flag, out_x, out_y, bad_calibration
+        return output_img, flag, cloud_factor, out_x, out_y, bad_calibration
     else:
-        return output_img, flag
+        return output_img, flag, cloud_factor
+preseg = False   
+json_file = ''
 
 
 
 
 
+####################################################################################
+####################################################################################
+################################### Optical Flow  ##################################
+####################################################################################
+####################################################################################
+### preseg variable defines if the images are presegemented (set to False by default)
+################ Specify the path to the folder containing images ##################
+####################################################################################
+##### If the images are NOT presegmented only the path to the folder is enough #####
+##### as all the computations are done from this code. However for speed doing #####
+##### a presegmentation can be usefull if changes are being implemented to the #####
+##### Optical flow algorithm below.                                            #####
+####################################################################################
 
-
-
-
-
-
-
-
-
-
-
-filepath = '20230807/20230807163300.jp2'
-
-poly_x, poly_y = solar_calibration()
-x_mapped, y_mapped, day = solar_pos(filepath)
-timer = get_time (filepath)
-solar_x, solar_y, covered = solar_xy (timer, x_mapped, y_mapped, day)
-
-new_solar_x = poly_x(solar_x)
-new_solar_y = poly_y(solar_y)
-
-output_img, sun = segmentation(filepath)
-# plt.clf()
-# plt.imshow(output_img)
-# plt.title(sun)
-
-# Parameter definitions for LK optical flow and border detection
-preseg = False
-lk_params = dict(winSize=(15, 15),
-                  maxLevel=2,
-                  criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
-
-feature_params = dict(maxCorners=100,
-                      qualityLevel=0.3,
-                      minDistance=10,
-                      blockSize=7)
-
-trajectory_len = 40
-detect_interval = 5
-trajectories = []
-trajectories_vel = []
-frame_idx = 0
-flow = np.empty((480, 640, 2))
-
-# Specify the path to the folder containing images
-
+# # # Not presegemented folder
 # image_folder = '20230807'
 
+####################################################################################
+### If the images are presegmented the path as well as a json containing     #######
+### the missing info is required. In this case the preseg variable must be   #######
+### changed to true in order to perform the necessary operations.            #######
+####################################################################################
 
-# # presegemented image folder (for speed)
-image_folder = '20230807_seg_corrected'
+# # # Presegemented folder
+image_folder = '20230807_avg'
+json_file = 'sun_data.json'
 preseg = True
-with open('sun_data.json', 'r', encoding='utf-8') as sun_file:
-    sun_data = json.load(sun_file)
 
+####################################################################################
+####################################################################################
 
 
 # Get the list of image files in the folder
 image_files = sorted([f for f in os.listdir(image_folder) if f.endswith(('.jpg', '.png', '.jpeg', '.jp2'))])
 # Read and preprocess the first image
 first_im = os.path.join(image_folder, image_files[0])
+poly_x, poly_y = solar_calibration()
 x_mapped, y_mapped, day = solar_pos(first_im)
+timer = get_time (first_im)
+solar_x, solar_y, covered = solar_xy (timer, x_mapped, y_mapped, day)
+new_solar_x = poly_x(solar_x); new_solar_y = poly_y(solar_y)
+lower_bound = datetime.strptime(day + ' 05:00:00', "%Y-%m-%d %H:%M:%S")
+upper_bound = datetime.strptime(day + ' 16:37:00', "%Y-%m-%d %H:%M:%S")
+# Parameter definitions for LK optical flow and border detection
+
+lk_params = dict(winSize=(15, 15), maxLevel=2,
+                  criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+feature_params = dict(maxCorners=100, qualityLevel=0.3, minDistance=10, blockSize=7)
+trajectory_len = 40; detect_interval = 5
+trajectories = []; trajectories_vel = []; frame_idx = 0; flow = np.empty((480, 640, 2))
+image_data = {}
 
 if not preseg:
-    prev_gray, sun, corrected_x, corrected_y, bad_calibration  = segmentation(first_im, ret_coords=True)
+    prev_gray, sun, cloud_factor, corrected_x, corrected_y, bad_calibration = segmentation(first_im, ret_coords=True)
     new_coords = [corrected_x, corrected_y]
-# # If the images are already segmented use the command below
 if preseg:
+    with open(json_file, 'r', encoding='utf-8') as sun_file:
+        sun_data = json.load(sun_file)
     prev_gray = cv2.imread(first_im)
 
 prev_gray = cv2.cvtColor(prev_gray, cv2.COLOR_BGR2GRAY)
-
-image_data = {}
-
-for image_file in image_files[900:965]:
-# for image_file in image_files[900:965]:
-    # Construct the full path to the image
+# # Lucas - Kanade implementation for images in the range specified
+for image_file in image_files[900:960]:
+# for image_file in image_files[:]:
+    # Full path to the image
     image_path = os.path.join(image_folder, image_file)
-
     # Read and preprocess the image
-    
     timer = get_time (image_path)
     solar_x, solar_y, covered = solar_xy (timer, x_mapped, y_mapped, day)
     new_solar_x = poly_x(solar_x)
     new_solar_y = poly_y(solar_y)
     if not preseg:
-        frame, sun, corrected_x, corrected_y, bad_calibration  = segmentation(image_path, ret_coords=True)
+        frame, sun, cloud_factor, corrected_x, corrected_y, bad_calibration  = segmentation(image_path, ret_coords=True)
         new_coords = [corrected_x, corrected_y]
     
     # Get sun data for the current image_file
@@ -645,7 +636,10 @@ for image_file in image_files[900:965]:
                 sun = sun_data[preprocess_name]['sun']
             else:
                 sun = 'no value'
-
+            if 'cloud_factor' in sun_data[preprocess_name]:
+                cloud_factor = sun_data[preprocess_name]['cloud_factor']
+            else:
+                cloud_factor = 'no value'
     
     # Image gets transformed to single channel gray
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -671,8 +665,7 @@ for image_file in image_files[900:965]:
             'sun_pos_pvlib':[new_solar_x, new_solar_y],
             'sun_pos_calculated': [new_coords[1],new_coords[0]]
         }
-        
-        
+
         new_trajectories = []
         new_trajectories_vel = []
         # Get all the trajectories
@@ -698,7 +691,7 @@ for image_file in image_files[900:965]:
                             (255,255,0), 1)
             
         trajectories = new_trajectories; trajectories_vel = new_trajectories_vel
-
+        disp_cloud_factor = 'cloud factor: '+ str( round(cloud_factor*100,1))+ '%'
         # Draw all the trajectories
         # skip the ones very close to the sun position
         for trajectory in trajectories:
@@ -708,22 +701,24 @@ for image_file in image_files[900:965]:
                     cv2.polylines(lk_img, [np.int32(trajectory) ], False, (0, 255, 0))
         cv2.putText(lk_img, image_file, (450, 460), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         cv2.putText(lk_img, sun, (450, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+        cv2.putText(lk_img, disp_cloud_factor, (450, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
         cv2.putText(lk_img, 'Trajectories: %d' % len(trajectories), (20, 50), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0), 1)
-        # # scaled sun position from pvlib
-        cv2.circle(lk_img, (round(new_solar_x), round(new_solar_y)), 2, (255, 0, 0), -1)
-        # # predicted sun position
-        cv2.circle(lk_img, (round(new_coords[1]), round(new_coords[0])), 3, (255, 0, 255), -1)
-
         
-        
-        
+        time_str = get_time (image_file)
+        date =  day + ' ' + time_str
+        current_time = datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
+        if (current_time>lower_bound)&(current_time<upper_bound):
+            # # scaled sun position from pvlib
+            cv2.circle(lk_img, (round(new_solar_x), round(new_solar_y)), 2, (255, 0, 0), -1)
+            # # predicted sun position
+            cv2.circle(lk_img, (round(new_coords[1]), round(new_coords[0])), 3, (255, 0, 255), -1)
 
     # Update interval - When to update and detect new features
     if frame_idx % detect_interval == 0:
         mask = np.zeros_like(gray)
         mask[:] = 255
         
-        # # # Points generated from goodFeaturesToTrack
+        # # # Points generated from goodFeaturesToTrack (maybe together with farneback will work better? uncommenting should add them)
         # # Lastest point in latest trajectory
         # for x, y in [np.int32(trajectory[-1]) for trajectory in trajectories]:
         #     cv2.circle(mask, (x, y), 5, 0, -1)
@@ -733,8 +728,7 @@ for image_file in image_files[900:965]:
         #     # If good features can be tracked - add that to the trajectories
         #     for x, y in np.float32(p).reshape(-1, 2):
         #         trajectories.append([(x, y)])
-                
-        
+      
         flow = cv2.calcOpticalFlowFarneback(prev_gray, gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
 
         def draw_hsv(flow):
@@ -783,10 +777,6 @@ for image_file in image_files[900:965]:
             for labl in range(1,small_id+1): 
                 centroide = measure.centroid(label_over_small == labl)
                 all_centroids.append(centroide)
-                # lk_img = cv2.arrowedLine(lk_img,
-                #                     (int(centroide[1]), int(centroide[0])),
-                #                     (int(centroide[1] + average_non_zero_x * 5), int(centroide[0] + average_non_zero_y * 5)),
-                #                     (255,255,0), 1)
 
         centroids_array = np.float32(all_centroids).reshape(-1, 1, 2)
         # Use the points from centroids_array

@@ -18,6 +18,7 @@ import blend_modes
 import warnings
 import os
 import json
+from datetime import datetime
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
@@ -132,7 +133,7 @@ def solar_pos(filepath):
 
     return x_final, y_final, day
 
-# gets the time from the filepath following the convention '~/YYYYMMDDhhmmss.png'
+# gets the time from the filepath following the convention '~/YYYYMMDDhhmmss.jp2'
 def get_time (filepath):
     st = filepath[-10:-4]
     hh = str(int(st[0:2])-5)
@@ -328,13 +329,13 @@ def rings (img, final_mask, cutoff_radius=200, center=(235,314), glob_list = Fal
 # filepath = '20230808/20230808131100.jp2'
 # filepath = '20230807/20230807220400.jp2'
 def average_curve():
-    # filepath_list = ['20230808/20230808131100.jp2', '20230808/20230808140700.jp2',
-    #                  '20230808/20230808153730.jp2', '20230808/20230808131700.jp2',
-    #                  '20230808/20230808175830.jp2', '20230807/20230807220400.jp2',
-    #                  '20230807/20230807221330.jp2' ,'20230807/20230807214200.jp2']
     filepath_list = ['20230808/20230808131100.jp2', '20230808/20230808140700.jp2',
                      '20230808/20230808153730.jp2', '20230808/20230808131700.jp2',
-                     '20230808/20230808175830.jp2']
+                     '20230808/20230808175830.jp2', '20230807/20230807220400.jp2',
+                     '20230807/20230807221330.jp2' ,'20230807/20230807214200.jp2']
+    # filepath_list = ['20230808/20230808131100.jp2', '20230808/20230808140700.jp2',
+    #                  '20230808/20230808153730.jp2', '20230808/20230808131700.jp2',
+    #                  '20230808/20230808175830.jp2']
     norm_average_values_list = []
     for filepath in filepath_list:
         only_circle, final_mask = load_and_cut (filepath) 
@@ -528,16 +529,20 @@ def segmentation (filepath, ret_coords = False):
 
     thresh  = threshold_otsu(gradient_image)
     binary = gradient_image > thresh
-
+    
+    total_mask = final_mask*~sun_mask
     big_mask = remove_small(binary)
-    big_clouds = rgba_image[:, :, 0] * big_mask * final_mask * ~sun_mask
-
+    big_clouds = rgba_image[:, :, 0] * big_mask * total_mask
+    cloud_factor = np.sum(big_mask)/np.sum(total_mask)
     # For ease of use the single channel image gets converted to RGB (similar to the RGBA process)
     output_img = TwoDToRGB(big_clouds)
+
     if ret_coords:
-        return output_img,flag, out_x, out_y, bad_calibration
+        return output_img, flag, cloud_factor, out_x, out_y, bad_calibration
     else:
-        return output_img, flag
+        return output_img, flag, cloud_factor
+preseg = False   
+json_file = ''
 
 # resulting_avg = average_curve()
 # filepath = '20230808/20230808213400.jp2'
@@ -596,7 +601,7 @@ x_mapped, y_mapped, day = solar_pos(filepath)
 timer = get_time (filepath)
 solar_x, solar_y, covered = solar_xy (timer, x_mapped, y_mapped, day)
 new_solar_x = poly_x(solar_x); new_solar_y = poly_y(solar_y)
-output_img, flag = segmentation(filepath)
+output_img, flag, cloud_factor = segmentation(filepath)
 
 # plt.figure(figsize=(9,6))
 plt.subplot(2,2,1)  
