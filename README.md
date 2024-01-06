@@ -5,4 +5,4 @@ This repository contains all the necessary code to extract features from a set o
 
 ```bash
    pip install -r requirements.txt
-    ```
+```
