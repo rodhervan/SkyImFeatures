@@ -1,0 +1,8 @@
+opencv-python
+scikit-image
+pvlib
+numpy
+scipy
+pandas
+blend-modes
+--upgrade pillow
