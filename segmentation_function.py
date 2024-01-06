@@ -1,24 +1,19 @@
 import imageio.v2 as imageio
-from PIL import Image, ImageDraw
-import cv2
+from PIL import Image
+# import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from skimage.filters import *
-from skimage.metrics import *
-from skimage.segmentation import *
-from skimage.feature import *
+from skimage.filters import gaussian, threshold_otsu, threshold_yen
 from skimage.measure import label, regionprops, centroid
-from skimage import measure, color, io
-from scipy import ndimage as ndi
-from scipy.interpolate import *
+# from skimage import measure, color
 import pvlib
 import copy
 import pandas as pd
 import blend_modes
 import warnings
-import os
-import json
-from datetime import datetime
+# import os
+# import json
+# from datetime import datetime
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
@@ -545,7 +540,7 @@ preseg = False
 json_file = ''
 
 # resulting_avg = average_curve()
-# filepath = '20230808/20230808213400.jp2'
+# filepath = 'JP2_files/20230808/20230808213400.jp2'
 # only_circle, final_mask = load_and_cut (filepath) 
 # reconstructed_image, flag = ring_cleaning(only_circle, final_mask)
 # plt.figure(figsize=(12,6))
@@ -560,39 +555,39 @@ json_file = ''
 
 
 # path to jp2 image
-filepath = '20230807/20230807110400.jp2' ##### 0.5109 0.4782
-# filepath = '20230807/20230807131700.jp2' # 0.3884 0.6096
-# filepath = '20230807/20230807121300.jp2' # 0.4566 0.5645
-# filepath = '20230807/20230807180600.jp2' # 0.3307 0.5066
-# filepath = '20230807/20230807100230.jp2' # # # 0.5138 0.5315
-# filepath = '20230807/20230807163300.jp2' # 
-# filepath = '20230807/20230807152030.jp2' # 
-# filepath = '20230807/20230807192300.jp2' # 
-# filepath = '20230808/20230808192300.jp2' # 
+filepath = 'JP2_files/20230807/20230807110400.jp2' ##### 0.5109 0.4782
+# filepath = 'JP2_files/20230807/20230807131700.jp2' # 0.3884 0.6096
+# filepath = 'JP2_files/20230807/20230807121300.jp2' # 0.4566 0.5645
+# filepath = 'JP2_files/20230807/20230807180600.jp2' # 0.3307 0.5066
+# filepath = 'JP2_files/20230807/20230807100230.jp2' # # # 0.5138 0.5315
+# filepath = 'JP2_files/20230807/20230807163300.jp2' # 
+# filepath = 'JP2_files/20230807/20230807152030.jp2' # 
+# filepath = 'JP2_files/20230807/20230807192300.jp2' # 
+# filepath = 'JP2_files/20230808/20230808192300.jp2' # 
 
-# filepath = '20230807/20230807143530.jp2' ###### 0.3951 0.4528
+# filepath = 'JP2_files/20230807/20230807143530.jp2' ###### 0.3951 0.4528
 
-# filepath = '20230808/20230808131700.jp2' # 
-# filepath = '20230808/20230808112930.jp2' # 
-# filepath = '20230808/20230808131100.jp2' # 
-# filepath = '20230808/20230808140700.jp2' # 
-# filepath = '20230808/20230808153730.jp2' # 
-# filepath = '20230808/20230808162300.jp2' # 
-# filepath = '20230807/20230807121300.jp2' # 
-# filepath = '20230808/20230808175830.jp2' # 
+# filepath = 'JP2_files/20230808/20230808131700.jp2' # 
+# filepath = 'JP2_files/20230808/20230808112930.jp2' # 
+# filepath = 'JP2_files/20230808/20230808131100.jp2' # 
+# filepath = 'JP2_files/20230808/20230808140700.jp2' # 
+# filepath = 'JP2_files/20230808/20230808153730.jp2' # 
+# filepath = 'JP2_files/20230808/20230808162300.jp2' # 
+# filepath = 'JP2_files/20230807/20230807121300.jp2' # 
+# filepath = 'JP2_files/20230808/20230808175830.jp2' # 
 
-# filepath = '20230808/20230808190630.jp2' # 
+# filepath = 'JP2_files/20230808/20230808190630.jp2' # 
 
-# filepath = '20230808/20230808200130.jp2' # 
+# filepath = 'JP2_files/20230808/20230808200130.jp2' # 
 
-# filepath = '20230808/20230808201030.jp2' ##
+# filepath = 'JP2_files/20230808/20230808201030.jp2' ##
 
-# filepath = '20230808/20230808213400.jp2' ##### 0.4952 0.2914
-# filepath = '20230807/20230807121000.jp2' # 
-# filepath = '20230807/20230807175500.jp2' # 
-# filepath = '20230807/20230807174730.jp2' # 
-# filepath = '20230807/20230807143530.jp2' #### 0.3951 0.4528
-# filepath = '20230807/20230807102200.jp2' ##### 0.617 0.2958
+# filepath = 'JP2_files/20230808/20230808213400.jp2' ##### 0.4952 0.2914
+# filepath = 'JP2_files/20230807/20230807121000.jp2' # 
+# filepath = 'JP2_files/20230807/20230807175500.jp2' # 
+# filepath = 'JP2_files/20230807/20230807174730.jp2' # 
+# filepath = 'JP2_files/20230807/20230807143530.jp2' #### 0.3951 0.4528
+# filepath = 'JP2_files/20230807/20230807102200.jp2' ##### 0.617 0.2958
 
 
 # resulting_avg = average_curve()

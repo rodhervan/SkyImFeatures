@@ -6,14 +6,14 @@ import os
 img_array = []
 
 # # # Using global path to folder
-# folder_path = 'D:\\RODRIGO\\Tesis IMEC\\Python\\Fully_processed'
+# folder_path = 'D:........./Fully_processed/20230807'
 # if os.path.exists(folder_path):
 #     direction = glob.glob(f'{folder_path}/*.png')
 # else:
 #     print(f"Folder '{folder_path}' does not exist.")
 
 # # # Using a relative path instead of an absolute path
-folder_path = 'Fully_processed'
+folder_path = 'Fully_processed/20230807'
 folder_path = os.path.join(os.getcwd(), folder_path)
 if os.path.exists(folder_path):
     direction = glob.glob(os.path.join(folder_path, '*.png'))
@@ -28,7 +28,8 @@ for filename in direction:
     size = (width,height)
     img_array.append(img)
 fps = 30
-out = cv2.VideoWriter('20230807_avg.avi',cv2.VideoWriter_fourcc(*'DIVX'), fps, size)
+os.makedirs('Generated_videos', exist_ok=True)
+out = cv2.VideoWriter('Generated_videos/' + folder_path[-8:] + '.avi',cv2.VideoWriter_fourcc(*'DIVX'), fps, size)
 
 for i in range(len(img_array)):
     out.write(img_array[i])

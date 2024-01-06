@@ -1,16 +1,11 @@
 import imageio.v2 as imageio
-from PIL import Image, ImageDraw
+from PIL import Image
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from skimage.filters import *
-from skimage.metrics import *
-from skimage.segmentation import *
-from skimage.feature import *
+from skimage.filters import gaussian, threshold_otsu, threshold_yen
 from skimage.measure import label, regionprops, centroid
-from skimage import measure, color, io
-from scipy import ndimage as ndi
-from scipy.interpolate import *
+from skimage import measure, color
 import pvlib
 import copy
 import pandas as pd
@@ -550,7 +545,7 @@ json_file = ''
 
 ####################################################################################
 ####################################################################################
-################################### Optical Flow  ##################################
+##################################  Optical Flow  ##################################
 ####################################################################################
 ####################################################################################
 ### preseg variable defines if the images are presegemented (set to False by default)
@@ -563,7 +558,7 @@ json_file = ''
 ####################################################################################
 
 # # # Not presegemented folder
-# image_folder = '20230807'
+# image_folder = 'JP2_files/20230807'
 
 ####################################################################################
 ### If the images are presegmented the path as well as a json containing     #######
@@ -572,8 +567,7 @@ json_file = ''
 ####################################################################################
 
 # # # Presegemented folder
-image_folder = '20230807_avg'
-json_file = 'sun_data.json'
+image_folder = 'Segmented_images/20230807'
 preseg = True
 
 ####################################################################################
@@ -604,14 +598,21 @@ if not preseg:
     prev_gray, sun, cloud_factor, corrected_x, corrected_y, bad_calibration = segmentation(first_im, ret_coords=True)
     new_coords = [corrected_x, corrected_y]
 if preseg:
+    json_file = 'Generated_data/sun_data_' + first_im[-18:-10] + '.json'
     with open(json_file, 'r', encoding='utf-8') as sun_file:
         sun_data = json.load(sun_file)
     prev_gray = cv2.imread(first_im)
 
 prev_gray = cv2.cvtColor(prev_gray, cv2.COLOR_BGR2GRAY)
+
+################################################################################################
+#############################  Define image processing range here: #############################
+############### (a) 'image_files[:]' or 'image_files' for all the set,            ##############
+############### (b) 'image_files[initial_image:final_image]' for desired subsets ###############
+################################################################################################
 # # Lucas - Kanade implementation for images in the range specified
-for image_file in image_files[900:960]:
-# for image_file in image_files[:]:
+# for image_file in image_files[950:960]:
+for image_file in image_files[:]:
     # Full path to the image
     image_path = os.path.join(image_folder, image_file)
     # Read and preprocess the image
@@ -702,7 +703,7 @@ for image_file in image_files[900:960]:
         cv2.putText(lk_img, image_file, (450, 460), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         cv2.putText(lk_img, sun, (450, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
         cv2.putText(lk_img, disp_cloud_factor, (450, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
-        cv2.putText(lk_img, 'Trajectories: %d' % len(trajectories), (20, 50), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0), 1)
+        cv2.putText(lk_img, 'Trajectories: %d' % len(trajectories), (20, 50), cv2.FONT_HERSHEY_PLAIN, 1, (255,255,255), 1)
         
         time_str = get_time (image_file)
         date =  day + ' ' + time_str
@@ -712,6 +713,7 @@ for image_file in image_files[900:960]:
             cv2.circle(lk_img, (round(new_solar_x), round(new_solar_y)), 2, (255, 0, 0), -1)
             # # predicted sun position
             cv2.circle(lk_img, (round(new_coords[1]), round(new_coords[0])), 3, (255, 0, 255), -1)
+        cv2.putText(lk_img, time_str, (551, 440), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
     # Update interval - When to update and detect new features
     if frame_idx % detect_interval == 0:
@@ -797,7 +799,7 @@ for image_file in image_files[900:960]:
     # cv2.imshow('Mask', mask)
     
     # Save plots to folder
-    output_directory = 'Fully_processed'
+    output_directory = 'Fully_processed/' + first_im[-18:-10]
     os.makedirs(output_directory, exist_ok=True)
     output_name = image_file[:-3] + 'png'
     new_path = os.path.join(output_directory, output_name)
@@ -813,6 +815,9 @@ plt.figure(figsize=(10,6))
 plt.title('Last image in set')
 plt.imshow(lk_img)
 
+print(first_im[-18:-10])
 # Save the data as a JSON file
-with open('image_data.json', 'w', encoding='utf-8') as f:
+os.makedirs('Generated_data', exist_ok=True)
+with open('Generated_data/image_data_'+ first_im[-18:-10] +'.json', 'w', encoding='utf-8') as f:
+# with open('image_data.json', 'w', encoding='utf-8') as f:
     json.dump(image_data, f, ensure_ascii=False, indent=4)

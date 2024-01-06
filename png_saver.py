@@ -1,16 +1,11 @@
 import imageio.v2 as imageio
-from PIL import Image, ImageDraw
-import cv2
+from PIL import Image
+# import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from skimage.filters import *
-from skimage.metrics import *
-from skimage.segmentation import *
-from skimage.feature import *
+from skimage.filters import gaussian, threshold_otsu, threshold_yen
 from skimage.measure import label, regionprops, centroid
-from skimage import measure, color, io
-from scipy import ndimage as ndi
-from scipy.interpolate import *
+# from skimage import measure, color
 import pvlib
 import copy
 import pandas as pd
@@ -18,7 +13,7 @@ import blend_modes
 import warnings
 import os
 import json
-from datetime import datetime
+# from datetime import datetime
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
@@ -545,24 +540,33 @@ json_file = ''
 
 
 
-poly_x, poly_y = solar_calibration()
+
+
+# iterate over files in 
+directory = 'JP2_files/20230807'
+files = os.listdir(directory)
+import random
+random_file = random.choice(files)
+file_path = os.path.join(directory, random_file)
+x_mapped, y_mapped, day = solar_pos(file_path)
+
 
 # Create the 'modified' directory if it doesn't exist
-output_directory = '20230807_avg'
+output_directory = 'Segmented_images/' + directory[-8:]
 os.makedirs(output_directory, exist_ok=True)
-
 # Load existing sun_data from JSON if it exists
-sun_data_file = 'sun_data.json'
+date = output_directory[-8:]
+sun_data_file = 'Generated_data/sun_data_'+date+'.json'
 if os.path.isfile(sun_data_file):
     with open(sun_data_file, 'r', encoding='utf-8') as f:
         sun_data = json.load(f)
 else:
+    os.makedirs('Generated_data', exist_ok=True)
     sun_data = {}
+poly_x, poly_y = solar_calibration() 
 
-x_mapped, y_mapped, day = solar_pos('20230807/20230807231500.jp2')
 
-# iterate over files in
-directory = '20230807'
+
 for filename in os.scandir(directory):
     if filename.is_file():
         name = str(filename).replace('<DirEntry ', '').replace('>', '').replace("'", "")
