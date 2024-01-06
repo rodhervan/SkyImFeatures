@@ -14,21 +14,22 @@ These instructions show how to set up the code for it to run on your local machi
 
 ### Installation
 
-It is suggested to create a virtual environment, for this make sure venv in installed or install it from terminal
+- It is suggested to create a virtual environment, for this make sure venv in installed or install it from terminal
 ```bash
    pip install virtualenv
 ```
+Create the virtual environment and activate it
 ```bash
    python -m venv skyImEnv
    skyImEnv\Scripts\activate
 ```
 
-Clone the repository
+- Clone the repository
 ```bash
    git clone https://github.com/rodhervan/SkyImFeatures/tree/main
 ```
 
-Navigate to the project directory and install the prerequisite libraries
+- Navigate to the project directory and install the prerequisite libraries
 ```bash
    cd  SkyImFeatures
    pip install -r requirements.txt
