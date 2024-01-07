@@ -14,7 +14,7 @@ These instructions show how to set up the code for it to run on your local machi
 
 ### Installation
 
-1. It is suggested to create a virtual environment (although optional), for this make sure venv in installed or install it from terminal
+1. It is suggested to create a virtual environment (although optional), for this make sure venv is installed or install it from terminal
 ```bash
    pip install virtualenv
 ```
