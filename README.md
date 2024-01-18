@@ -41,7 +41,7 @@ To use this code there are several ways. Although cloning this repository will a
 
 ### Jupyter notebook
 
-The [Final_document.ipynb](https://github.com/rodhervan/SkyImFeatures/blob/main/Final_document.ipynb) file contains an detailed explanation on how the functions work. To run it the example files mentioned need to be downloaded. 
+The [Final_document.ipynb](https://github.com/rodhervan/SkyImFeatures/blob/main/Final_document.ipynb) file contains a detailed explanation on how the functions work. To run it the example files mentioned need to be downloaded. 
 
 ### Code usage
 
